@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Zipline v0.1</title>
+<style>
+:root {
+  --lw: 260px; --rw: 300px; --th: 52px;
+  --brand: #1976d2; --green: #2e7d32; --red: #c62828; --amber: #f59e0b;
+  --bg: #ecf0f5; --panel: #fff; --border: #e2e8f0; --text: #1e293b; --muted: #64748b;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; background: var(--bg); color: var(--text);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans JP", sans-serif; }
+
+/* ── topbar ── */
+.topbar {
+  position: fixed; inset: 0 0 auto 0; height: var(--th);
+  background: var(--panel); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 6px; padding: 0 12px; z-index: 40;
+}
+.tb-brand { font-weight: 800; font-size: 16px; color: var(--brand); letter-spacing: -0.3px; margin-right: 4px; }
+.tb-brand span { color: var(--muted); font-weight: 400; font-size: 12px; }
+.tb-btn {
+  appearance: none; border: 1px solid var(--border); background: var(--panel);
+  border-radius: 8px; padding: 6px 12px; font-size: 13px; cursor: pointer; font-weight: 500; white-space: nowrap;
+}
+.tb-btn:hover { background: #f0f7ff; border-color: #bdd7fc; }
+.tb-btn.primary { background: var(--brand); color: #fff; border-color: #1565c0; }
+.tb-btn.primary:hover { background: #1565c0; }
+.tb-btn.danger  { background: #fff3f3; color: var(--red); border-color: #fca5a5; }
+.spacer { flex: 1; }
+#connectBar {
+  display: none; background: #eff6ff; border: 1px solid #bdd7fc; border-radius: 6px;
+  padding: 4px 12px; font-size: 12px; font-weight: 600; color: var(--brand);
+}
+
+/* ── left pane ── */
+#leftPane {
+  position: fixed; left: 0; top: var(--th); bottom: 0; width: var(--lw);
+  background: var(--panel); border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; z-index: 30; overflow: hidden;
+}
+.lp-head { padding: 10px 12px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.lp-head label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; }
+#projName {
+  display: block; width: 100%; margin-top: 4px; padding: 6px 8px;
+  border: 1px solid var(--border); border-radius: 7px; font-size: 14px; font-weight: 600; font-family: inherit;
+}
+#projName:focus { outline: none; border-color: var(--brand); }
+#lpStats { padding: 7px 12px; font-size: 12px; color: var(--muted); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+#lpList { flex: 1; overflow-y: auto; padding: 6px; }
+.lp-item {
+  display: flex; align-items: center; gap: 7px; padding: 6px 8px;
+  border-radius: 7px; cursor: pointer; font-size: 13px; user-select: none;
+}
+.lp-item:hover { background: #f8fafc; }
+.lp-item.sel    { background: #eff6ff; }
+.li-dot  { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.li-type { font-size: 11px; font-weight: 700; min-width: 20px; }
+.li-type.Q { color: #1d4ed8; } .li-type.A { color: #15803d; } .li-type.S { color: var(--muted); }
+.li-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ── canvas ── */
+#container {
+  position: fixed; left: var(--lw); top: var(--th); right: var(--rw); bottom: 0;
+  background-color: #ecf0f5;
+  background-image: radial-gradient(circle, #c8d3df 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+body.connecting #container { cursor: crosshair !important; }
+.canvas-hint { position: fixed; left: calc(var(--lw) + 8px); bottom: 7px; font-size: 11px; color: var(--muted); z-index: 10; }
+
+/* ── right pane ── */
+#rightPane {
+  position: fixed; right: 0; top: var(--th); bottom: 0; width: var(--rw);
+  background: var(--panel); border-left: 1px solid var(--border);
+  display: flex; flex-direction: column; z-index: 30; overflow: hidden;
+}
+.rp-hd {
+  padding: 11px 14px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+  display: flex; align-items: center; gap: 8px;
+}
+.rp-hd h3 { flex: 1; font-size: 14px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rp-close { background: none; border: none; cursor: pointer; font-size: 18px; color: var(--muted); padding: 2px 4px; line-height: 1; }
+.rp-close:hover { color: var(--text); }
+.rp-body { flex: 1; overflow-y: auto; padding: 14px; }
+.rp-sec { margin-bottom: 14px; }
+.rp-lbl { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 5px; }
+.rp-input, .rp-ta {
+  width: 100%; padding: 7px 9px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; font-family: inherit;
+}
+.rp-input:focus, .rp-ta:focus { outline: none; border-color: var(--brand); }
+.rp-ta { min-height: 80px; resize: vertical; line-height: 1.6; }
+.type-tog { display: flex; gap: 6px; }
+.type-btn {
+  flex: 1; padding: 8px; border: 2px solid var(--border); border-radius: 8px;
+  background: var(--panel); cursor: pointer; font-size: 13px; font-weight: 700; text-align: center;
+}
+.type-btn:hover { background: #f8fafc; }
+.type-btn.active.Q { border-color: #1976d2; background: #dbeafe; color: #1d4ed8; }
+.type-btn.active.A { border-color: #2e7d32; background: #dcfce7; color: #15803d; }
+
+/* branches */
+.br-list { display: flex; flex-direction: column; gap: 6px; }
+.br-row {
+  display: flex; align-items: center; gap: 5px;
+  padding: 7px 8px; background: #f8fafc; border: 1px solid var(--border); border-radius: 8px;
+}
+.br-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.br-inp { flex: 1; min-width: 0; padding: 3px 6px; border: 1px solid var(--border); border-radius: 5px; font-size: 12px; font-family: inherit; }
+.br-inp:focus { outline: none; border-color: var(--brand); }
+.br-tag { font-size: 10px; padding: 2px 5px; border-radius: 4px; white-space: nowrap; flex-shrink: 0; }
+.br-tag.ok  { background: #dcfce7; color: #15803d; }
+.br-tag.err { background: #fef2f2; color: var(--red); }
+.br-act { padding: 2px 7px; font-size: 11px; font-weight: 600; border-radius: 5px; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
+.br-act.conn { border: 1px solid var(--brand); color: var(--brand); background: #fff; }
+.br-act.conn:hover { background: #eff6ff; }
+.br-act.disc { border: 1px solid var(--border); color: var(--muted); background: #fff; }
+.br-act.disc:hover { background: #fef2f2; color: var(--red); border-color: #fca5a5; }
+.br-del { background: none; border: none; cursor: pointer; color: var(--muted); font-size: 15px; padding: 1px 2px; flex-shrink: 0; }
+.br-del:hover { color: var(--red); }
+.add-br {
+  width: 100%; margin-top: 5px; padding: 7px; border: 1px dashed var(--border); border-radius: 8px;
+  background: transparent; cursor: pointer; font-size: 13px; color: var(--muted); font-weight: 600;
+}
+.add-br:hover { background: #f8fafc; border-color: var(--brand); color: var(--brand); }
+.rp-ft { flex-shrink: 0; padding: 11px 14px; border-top: 1px solid var(--border); }
+
+/* validation modal */
+#valOverlay {
+  position: fixed; inset: var(--th) 0 0 var(--lw); background: rgba(0,0,0,.4);
+  display: none; align-items: center; justify-content: center; z-index: 50;
+}
+.val-modal {
+  background: var(--panel); border-radius: 12px; width: 480px; max-height: 70vh;
+  box-shadow: 0 20px 60px rgba(0,0,0,.3); display: flex; flex-direction: column;
+}
+.vm-hd { padding: 14px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+.vm-hd h3 { flex: 1; font-size: 15px; font-weight: 700; }
+.vm-body { padding: 12px 18px; overflow-y: auto; }
+.val-row { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.val-row:last-child { border-bottom: none; }
+.val-ok { color: #15803d; font-weight: 600; padding: 14px 0; text-align: center; font-size: 14px; }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="tb-brand">Zipline <span>v0.1</span></div>
+  <button class="tb-btn primary" id="btnAddQ">＋ Q カード</button>
+  <button class="tb-btn"         id="btnAddA">＋ A カード</button>
+  <button class="tb-btn"         id="btnValidate">✓ 検証</button>
+  <button class="tb-btn"         id="btnUndo">↩ Undo</button>
+  <div id="connectBar">接続先カードをクリック…　ESC でキャンセル</div>
+  <div class="spacer"></div>
+  <button class="tb-btn" id="btnLoad">📂 読込</button>
+  <input id="fileLoad" type="file" accept="application/json" style="display:none">
+  <button class="tb-btn" id="btnSave">💾 保存</button>
+  <button class="tb-btn" id="btnExport">📦 Export</button>
+</header>
+
+<aside id="leftPane">
+  <div class="lp-head">
+    <label for="projName">プロジェクト名</label>
+    <input id="projName" type="text" placeholder="新規プロジェクト">
+  </div>
+  <div id="lpStats"></div>
+  <div id="lpList"></div>
+</aside>
+
+<div id="container"></div>
+<div class="canvas-hint">Space+ドラッグ = パン　　Ctrl+ホイール = ズーム</div>
+
+<aside id="rightPane">
+  <div class="rp-hd">
+    <h3 id="rpTitle">カードを選択</h3>
+    <button class="rp-close" id="rpClose">✕</button>
+  </div>
+  <div class="rp-body" id="rpBody">
+    <p style="color:var(--muted);font-size:13px;padding-top:6px">キャンバス上のカードをクリックすると編集できます。</p>
+  </div>
+  <div class="rp-ft" id="rpFt" style="display:none">
+    <button class="tb-btn danger" id="btnDelete" style="width:100%">🗑 このカードを削除</button>
+  </div>
+</aside>
+
+<div id="valOverlay">
+  <div class="val-modal">
+    <div class="vm-hd">
+      <h3>検証結果</h3>
+      <button class="rp-close" id="valClose">✕</button>
+    </div>
+    <div class="vm-body" id="valBody"></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/konva@9.3.3/konva.min.js"></script>
+<script>
+'use strict';
+
+// ── Constants ──────────────────────────────────────────────────
+const CW       = 240;
+const COLORS   = ['#1976d2','#d32f2f','#2e7d32','#f59e0b','#7b1fa2'];
+const SNAP     = 20;
+const MAX_UNDO = 50;
+const STATUS_COL = { ok:'#2e7d32', warn:'#f59e0b', error:'#c62828' };
+
+// ── Helpers ────────────────────────────────────────────────────
+const uuid    = () => crypto.randomUUID();
+const nowISO  = () => new Date().toISOString();
+const esc     = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const byId    = id => cards.find(c => c.id === id);
+const lsFrom  = (cid,pi) => links.filter(l => l.from.cardId===cid && l.from.portIndex===pi);
+
+function mkMeta() {
+  return { version:'0.1', projectId:uuid(), projectName:'新規プロジェクト', createdAt:nowISO(), updatedAt:nowISO() };
+}
+
+// ── State ──────────────────────────────────────────────────────
+let cards       = [];
+let links       = [];
+let meta        = mkMeta();
+let selectedId  = null;
+let connectFrom = null;   // { cardId, portIndex } | null
+let groups      = new Map();
+let undoStack   = [];
+
+// ── Card geometry ──────────────────────────────────────────────
+function titleH(c) { return Math.max(1, Math.ceil(Math.max(1,(c.title||'').length)/26)) * 20; }
+function contH(c) {
+  const text = c.content || '';
+  if (!text) return 0;
+  const byNewline = text.split('\n').length;
+  const byChars   = Math.ceil(text.length / 30);
+  return Math.min(200, Math.max(byNewline, byChars) * 17);
+}
+function cardH(c) {
+  if (c.type==='START') return 48;
+  const bct = c.type==='Q' ? (c.labels||[]).length : 0;
+  return 14 + 22 + titleH(c) + (contH(c)?6+contH(c):0) + (bct?8+bct*26:0) + 12;
+}
+// local Y-center of branch dot (i = 0-based)
+function dotY(c, i) { return 14 + 22 + titleH(c) + (contH(c)?6+contH(c):0) + 8 + i*26 + 13; }
+
+function wBranchPos(cardId, portIndex) {
+  const c = byId(cardId); const g = groups.get(cardId);
+  if (!c||!g) return {x:0,y:0};
+  if (c.type==='START') return { x:g.x()+90, y:g.y()+48 };
+  const n = (c.labels||[]).length;
+  const i = portIndex - 1;
+  return { x:g.x() + CW*(i+1)/(n+1), y:g.y()+cardH(c) };
+}
+function wTopCenter(cardId) {
+  const g = groups.get(cardId); if (!g) return {x:0,y:0};
+  return { x:g.x()+CW/2, y:g.y() };
+}
+
+// ── Status ─────────────────────────────────────────────────────
+function status(c) {
+  if (c.type==='START') return 'ok';
+  if (!c.type) return 'warn';
+  if (c.type==='Q') {
+    if (!(c.labels||[]).length) return 'warn';
+    if (c.labels.some((_,i) => lsFrom(c.id,i+1).length===0)) return 'error';
+  }
+  if (!c.title && !c.content) return 'warn';
+  return 'ok';
+}
+
+// ── Konva setup ─────────────────────────────────────────────────
+const lw = () => 260;
+const rw = () => 300;
+const sW = () => innerWidth - lw() - rw();
+const sH = () => innerHeight - 52;
+
+const stage     = new Konva.Stage({ container:'container', width:sW(), height:sH() });
+const linkLayer = new Konva.Layer();
+const cardLayer = new Konva.Layer();
+stage.add(linkLayer, cardLayer);
+
+window.addEventListener('resize', () => stage.size({ width:sW(), height:sH() }));
+
+// ── Pan / Zoom ──────────────────────────────────────────────────
+let spaceHeld = false;
+
+document.addEventListener('keydown', e => {
+  const inInput = ['INPUT','TEXTAREA'].includes(document.activeElement?.tagName);
+  if (e.code==='Space' && !spaceHeld && !inInput) {
+    e.preventDefault(); spaceHeld=true;
+    stage.draggable(true); document.body.style.cursor='grab';
+  }
+  if (e.code==='Escape') cancelConnect();
+  if ((e.ctrlKey||e.metaKey) && e.code==='KeyZ' && !inInput) { e.preventDefault(); undo(); }
+});
+document.addEventListener('keyup', e => {
+  if (e.code==='Space') {
+    spaceHeld=false; stage.draggable(false);
+    document.body.style.cursor = connectFrom ? 'crosshair' : '';
+  }
+});
+
+stage.on('mousedown', e => {
+  if (e.target===stage && connectFrom) { cancelConnect(); return; }
+  if (e.target===stage || spaceHeld) { stage.draggable(true); document.body.style.cursor='grabbing'; }
+  else if (!spaceHeld) stage.draggable(false);
+});
+stage.on('mouseup',  () => { if (!spaceHeld) { stage.draggable(false); document.body.style.cursor=connectFrom?'crosshair':''; } });
+stage.on('dragmove', () => redrawLinks());
+stage.on('dragend',  () => { if (!spaceHeld) stage.draggable(false); });
+stage.on('wheel', e => {
+  e.evt.preventDefault();
+  const old=stage.scaleX(), ptr=stage.getPointerPosition();
+  const wx=(ptr.x-stage.x())/old, wy=(ptr.y-stage.y())/old;
+  const neo=Math.max(0.1, Math.min(4, old*(e.evt.deltaY>0?1/1.1:1.1)));
+  stage.scale({x:neo,y:neo});
+  stage.position({x:ptr.x-wx*neo,y:ptr.y-wy*neo});
+  stage.batchDraw(); redrawLinks();
+});
+
+// ── Build card group ────────────────────────────────────────────
+function buildCard(c) {
+  const H = cardH(c);
+
+  const g = new Konva.Group({ x:c.x, y:c.y, id:c.id, draggable: c.type!=='START' });
+
+  // ── START node ──
+  if (c.type==='START') {
+    const W=180;
+    g.add(new Konva.Rect({ width:W, height:48, cornerRadius:24,
+      fill:'#1565c0', stroke:'#0d47a1', strokeWidth:2, shadowBlur:8, shadowOpacity:.2 }));
+    g.add(new Konva.Text({ text:'START', width:W, height:48,
+      align:'center', verticalAlign:'middle', fontSize:15, fontStyle:'bold', fill:'#fff' }));
+    // show connected-to hint
+    const lnk = links.find(l => l.from.cardId===c.id);
+    const tc  = lnk ? byId(lnk.to.cardId) : null;
+    if (tc) {
+      g.add(new Konva.Text({ x:0, y:52, width:W, text:'↓ '+(tc.title||tc.id),
+        align:'center', fontSize:10, fill:'#64748b', ellipsis:true }));
+    } else {
+      g.add(new Konva.Text({ x:0, y:52, width:W, text:'クリックして接続先を設定',
+        align:'center', fontSize:10, fill:'#94a3b8' }));
+    }
+    g.on('click', () => {
+      if (connectFrom) { cancelConnect(); return; }
+      startConnect(c.id, 1);
+    });
+    g.on('mouseenter', () => { document.body.style.cursor='pointer'; });
+    g.on('mouseleave', () => { document.body.style.cursor=connectFrom?'crosshair':''; });
+    cardLayer.add(g); groups.set(c.id, g);
+    return;
+  }
+
+  // ── Q / A card ──
+  const isQ = c.type==='Q';
+  const stroke = isQ ? '#1976d2' : '#2e7d32';
+  const isSel  = c.id===selectedId;
+
+  const rect = new Konva.Rect({
+    width:CW, height:H, cornerRadius:10, fill:'#fff', stroke, strokeWidth: isSel ? 2.5 : 1.5,
+    shadowBlur: isSel ? 16 : 5, shadowColor: isSel ? stroke : '#000',
+    shadowOpacity: isSel ? .35 : .08
+  });
+
+  // type badge
+  const badge = new Konva.Label({ x:8, y:14 });
+  badge.add(new Konva.Tag({ fill:isQ?'#dbeafe':'#dcfce7', stroke:isQ?'#bfdbfe':'#bbf7d0', cornerRadius:4 }));
+  badge.add(new Konva.Text({ text:c.type, fontSize:10, fontStyle:'bold', padding:4, fill:isQ?'#1e40af':'#166534' }));
+
+  // status dot
+  const sDot = new Konva.Circle({ x:CW-12, y:20, radius:5, fill:STATUS_COL[status(c)] });
+
+  // title
+  const tNode = new Konva.Text({
+    x:8, y:14+22, width:CW-16, text:c.title||'', fontSize:13, fontStyle:'bold',
+    fill:'#1e293b', wrap:'word', ellipsis:true, lineHeight:1.4
+  });
+
+  // content
+  const cNode = new Konva.Text({
+    x:8, y:14+22+titleH(c)+6, width:CW-16, text:c.content||'',
+    fontSize:11, fill:'#475569', wrap:'word', lineHeight:1.5
+  });
+
+  g.add(rect, badge, sDot, tNode, cNode);
+
+  // branch rows (Q only) — label rows inside card
+  if (isQ && c.labels && c.labels.length) {
+    const n = c.labels.length;
+    c.labels.forEach((lbl, i) => {
+      const col = COLORS[i]||'#888';
+      const dy  = dotY(c, i);
+      const lnk = links.find(l => l.from.cardId===c.id && l.from.portIndex===i+1);
+      const tc  = lnk ? byId(lnk.to.cardId) : null;
+
+      // color bar (left edge of row, decorative only)
+      g.add(new Konva.Rect({ x:6, y:dy-10, width:3, height:20, cornerRadius:2, fill:col, opacity:.7 }));
+
+      // label
+      g.add(new Konva.Text({ x:14, y:dy-9, width:CW-22, height:18,
+        text:lbl||`選択肢 ${i+1}`, fontSize:12, fill:'#374151', ellipsis:true, verticalAlign:'middle' }));
+
+      // target hint
+      if (tc) g.add(new Konva.Text({ x:14, y:dy+6, width:CW-22, height:12,
+        text:'→ '+(tc.title||tc.id), fontSize:10, fill:'#2e7d32', ellipsis:true }));
+
+      // ◎ at card bottom edge (clickable connector port)
+      const bx = CW * (i+1) / (n+1);
+      const by = H;
+      const outer = new Konva.Circle({ x:bx, y:by, radius:9, fill:'#fff', stroke:col, strokeWidth:2.5 });
+      const inner = new Konva.Circle({ x:bx, y:by, radius:5, fill:col });
+      const hitArea = new Konva.Circle({ x:bx, y:by, radius:14, fill:'transparent' });
+
+      [outer, inner, hitArea].forEach(node => {
+        node.on('mouseenter', () => { document.body.style.cursor='crosshair'; });
+        node.on('mouseleave', () => { document.body.style.cursor=connectFrom?'crosshair':''; });
+        node.on('click', e => {
+          e.cancelBubble=true;
+          connectFrom && connectFrom.cardId===c.id && connectFrom.portIndex===i+1
+            ? cancelConnect() : startConnect(c.id, i+1);
+        });
+      });
+
+      g.add(outer, inner, hitArea);
+    });
+  }
+
+  g.setAttr('_rect', rect);
+
+  g.on('dragmove', () => redrawLinks());
+  g.on('dragend', () => {
+    const nx=Math.round(g.x()/SNAP)*SNAP, ny=Math.round(g.y()/SNAP)*SNAP;
+    g.position({x:nx,y:ny}); c.x=nx; c.y=ny;
+    redrawLinks(); autoSave();
+  });
+  g.on('click', () => { connectFrom ? endConnect(c.id) : selectCard(c.id); });
+  g.on('mouseenter', () => { if (connectFrom && connectFrom.cardId!==c.id) document.body.style.cursor='pointer'; });
+  g.on('mouseleave', () => { document.body.style.cursor=connectFrom?'crosshair':''; });
+
+  cardLayer.add(g); groups.set(c.id, g);
+}
+
+function rebuildCard(id) {
+  const old = groups.get(id);
+  if (old) { old.destroy(); groups.delete(id); }
+  const c = byId(id); if (c) buildCard(c);
+  redrawLinks(); cardLayer.batchDraw();
+}
+
+function rebuildAll() {
+  cardLayer.destroyChildren(); linkLayer.destroyChildren(); groups.clear();
+  cards.forEach(c => buildCard(c));
+  redrawLinks();
+}
+
+// ── Link drawing ────────────────────────────────────────────────
+function redrawLinks() {
+  linkLayer.destroyChildren();
+  links.forEach(L => {
+    if (!groups.has(L.from.cardId) || !groups.has(L.to.cardId)) return;
+    const a = wBranchPos(L.from.cardId, L.from.portIndex);
+    const b = wTopCenter(L.to.cardId);
+    const col = COLORS[(L.from.portIndex-1) % COLORS.length];
+    const dy  = Math.max(40, Math.abs(b.y-a.y)*0.5);
+    linkLayer.add(new Konva.Line({
+      points:[a.x,a.y, a.x,a.y+dy, b.x,b.y-dy, b.x,b.y],
+      stroke:col, strokeWidth:2, opacity:.75, bezier:true, lineCap:'round'
+    }));
+    linkLayer.add(new Konva.Arrow({
+      points:[b.x,b.y-8, b.x,b.y], stroke:col, fill:col,
+      strokeWidth:2, opacity:.75, pointerLength:7, pointerWidth:7
+    }));
+  });
+  linkLayer.batchDraw();
+}
+
+// ── Selection & camera ──────────────────────────────────────────
+function selectCard(id) {
+  if (selectedId===id) return;
+  const prev=selectedId; selectedId=id;
+  if (prev) rebuildCard(prev);
+  if (id)   rebuildCard(id);
+  renderRight(); renderLeft();
+  if (id) focusCard(id);
+}
+
+function deselect() {
+  const prev=selectedId; selectedId=null;
+  if (prev) rebuildCard(prev);
+  renderRight(); renderLeft();
+}
+
+function focusCard(id) {
+  const g=groups.get(id); const c=byId(id); if (!g||!c) return;
+  const W=c.type==='START'?180:CW, H=cardH(c), sc=stage.scaleX();
+  stage.to({ x:sW()/2-(g.x()+W/2)*sc, y:sH()/2-(g.y()+H/2)*sc, duration:.2 });
+}
+
+function fitAll() {
+  if (!groups.size) return;
+  let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;
+  groups.forEach((g,id) => {
+    const c=byId(id); const W=c.type==='START'?180:CW; const H=cardH(c);
+    x0=Math.min(x0,g.x()); y0=Math.min(y0,g.y());
+    x1=Math.max(x1,g.x()+W); y1=Math.max(y1,g.y()+H);
+  });
+  const pad=60;
+  const sc=Math.min(1.2,Math.min((sW()-pad)/Math.max(1,x1-x0),(sH()-pad)/Math.max(1,y1-y0)));
+  stage.scale({x:sc,y:sc});
+  stage.position({x:sW()/2-((x0+x1)/2)*sc, y:sH()/2-((y0+y1)/2)*sc});
+  stage.batchDraw();
+}
+
+// ── Connect mode ────────────────────────────────────────────────
+function startConnect(cardId, portIndex) {
+  connectFrom = { cardId, portIndex };
+  document.body.classList.add('connecting');
+  document.getElementById('connectBar').style.display = '';
+}
+
+function cancelConnect() {
+  connectFrom = null;
+  document.body.classList.remove('connecting');
+  document.getElementById('connectBar').style.display = 'none';
+  document.body.style.cursor = '';
+}
+
+function endConnect(targetId) {
+  if (!connectFrom) return;
+  const { cardId, portIndex } = connectFrom;
+  cancelConnect();
+  if (targetId===cardId) return;
+  const fromCard = byId(cardId);
+  if (!fromCard || fromCard.type==='A') return;  // A can't output
+  if (targetId==='start_node') return;           // can't connect TO start
+
+  undoPush();
+  links = links.filter(l => !(l.from.cardId===cardId && l.from.portIndex===portIndex));
+  links.push({ id:uuid(), from:{cardId,portIndex}, to:{cardId:targetId} });
+
+  rebuildCard(cardId); rebuildCard(targetId);
+  redrawLinks(); renderRight(); renderLeft(); autoSave();
+}
+
+// ── Add / Delete ─────────────────────────────────────────────────
+function vpCenter() {
+  const sc=stage.scaleX(), sp=stage.position();
+  return {
+    x: Math.round((-sp.x+sW()/2)/sc/SNAP)*SNAP - CW/2,
+    y: Math.round((-sp.y+sH()/2)/sc/SNAP)*SNAP - 60
+  };
+}
+
+function addCard(type) {
+  undoPush();
+  const pos = vpCenter();
+  const c = { id:uuid(), type, x:pos.x, y:pos.y, title:'', content:'', labels: type==='Q' ? ['はい','いいえ'] : [] };
+  cards.push(c);
+  buildCard(c); selectCard(c.id);
+  renderLeft(); autoSave();
+}
+
+function deleteCard(id) {
+  const c = byId(id);
+  if (!c || c.type==='START') return;
+  if (!confirm(`「${c.title||'このカード'}」を削除しますか？`)) return;
+  undoPush();
+  links = links.filter(l => l.from.cardId!==id && l.to.cardId!==id);
+  cards = cards.filter(x => x.id!==id);
+  const g = groups.get(id); if (g) { g.destroy(); groups.delete(id); }
+  if (selectedId===id) selectedId=null;
+  redrawLinks(); renderRight(); renderLeft(); cardLayer.batchDraw();
+  // rebuild Q cards that lost a target (status change)
+  cards.filter(x=>x.type==='Q').forEach(x => rebuildCard(x.id));
+  autoSave();
+}
+
+// ── Undo ───────────────────────────────────────────────────────
+function undoPush() {
+  undoStack.push(JSON.stringify({cards,links}));
+  if (undoStack.length>MAX_UNDO) undoStack.shift();
+}
+
+function undo() {
+  if (!undoStack.length) return;
+  const snap = JSON.parse(undoStack.pop());
+  cards=snap.cards; links=snap.links;
+  rebuildAll(); renderRight(); renderLeft(); autoSave();
+}
+
+// ── Persist / Export ────────────────────────────────────────────
+function mkExport() {
+  meta.updatedAt = nowISO();
+  return {
+    meta,
+    cards: cards.map(c => ({ ...c, ports:(c.labels||[]).length })),
+    links,
+    viewport: { scale:stage.scaleX(), x:stage.x(), y:stage.y() }
+  };
+}
+
+function autoSave() {
+  try { localStorage.setItem('zipline:auto', JSON.stringify(mkExport())); } catch {}
+}
+
+function exportJSON() {
+  const data=mkExport();
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=(meta.projectName||'project').replace(/[^a-zA-Z0-9_\-\u3040-\u9FFF]/g,'_')+'.json';
+  a.click();
+}
+
+// ── Left panel ──────────────────────────────────────────────────
+function renderLeft() {
+  const qn=cards.filter(c=>c.type==='Q').length;
+  const an=cards.filter(c=>c.type==='A').length;
+  const er=cards.filter(c=>status(c)==='error').length;
+  document.getElementById('lpStats').innerHTML =
+    `Q: ${qn}　A: ${an}　リンク: ${links.length}` +
+    (er ? `　<b style="color:var(--red)">⚠ ${er}</b>` : '');
+
+  document.getElementById('lpList').innerHTML = cards.map(c => {
+    const st=status(c), tp=c.type==='START'?'S':(c.type||'?'), tl=c.type==='START'?'ST':(c.type||'?');
+    return `<div class="lp-item${c.id===selectedId?' sel':''}" onclick="selectCard('${c.id}')">
+      <span class="li-dot" style="background:${STATUS_COL[st]}"></span>
+      <span class="li-type ${tp}">${esc(tl)}</span>
+      <span class="li-name">${esc(c.title||'(未入力)')}</span>
+    </div>`;
+  }).join('');
+}
+
+// ── Right panel ─────────────────────────────────────────────────
+function renderRight() {
+  const rpTitle=document.getElementById('rpTitle');
+  const rpBody =document.getElementById('rpBody');
+  const rpFt   =document.getElementById('rpFt');
+
+  if (!selectedId) {
+    rpTitle.textContent='カードを選択';
+    rpBody.innerHTML='<p style="color:var(--muted);font-size:13px;padding-top:6px">キャンバス上のカードをクリックすると編集できます。</p>';
+    rpFt.style.display='none'; return;
+  }
+  const c=byId(selectedId);
+  if (!c) { deselect(); return; }
+
+  if (c.type==='START') {
+    rpTitle.textContent='START ノード';
+    rpBody.innerHTML='<p style="color:var(--muted);font-size:13px;padding-top:6px">START ノードをクリックすると接続先を設定できます。</p>';
+    rpFt.style.display='none'; return;
+  }
+
+  rpTitle.textContent = c.title||'(タイトルなし)';
+  rpFt.style.display = '';
+
+  const bHTML = c.type==='Q' ? buildBrHTML(c) : '';
+  rpBody.innerHTML = `
+    <div class="rp-sec">
+      <div class="rp-lbl">タイプ</div>
+      <div class="type-tog">
+        <button class="type-btn${c.type==='Q'?' active Q':''}" onclick="setType('Q')">Q 質問</button>
+        <button class="type-btn${c.type==='A'?' active A':''}" onclick="setType('A')">A 回答</button>
+      </div>
+    </div>
+    <div class="rp-sec">
+      <div class="rp-lbl">タイトル</div>
+      <input class="rp-input" id="rpTI" value="${esc(c.title||'')}" placeholder="タイトルを入力"
+        oninput="editField('title',this.value)">
+    </div>
+    <div class="rp-sec">
+      <div class="rp-lbl">本文</div>
+      <textarea class="rp-ta" id="rpBI" placeholder="本文を入力"
+        oninput="editField('content',this.value)">${esc(c.content||'')}</textarea>
+    </div>
+    ${c.type==='Q' ? `<div class="rp-sec">
+      <div class="rp-lbl">分岐</div>
+      <div class="br-list" id="brList">${bHTML}</div>
+      <button class="add-br" onclick="addBranch()">＋ 分岐を追加</button>
+    </div>` : ''}
+  `;
+}
+
+function buildBrHTML(c) {
+  return (c.labels||[]).map((lbl,i) => {
+    const col=COLORS[i]||'#888';
+    const lnk=links.find(l=>l.from.cardId===c.id&&l.from.portIndex===i+1);
+    const tc=lnk?byId(lnk.to.cardId):null;
+    const tagHtml = tc
+      ? `<span class="br-tag ok">${esc(tc.title||tc.id)}</span>
+         <button class="br-act disc" onclick="disconnBr(${i+1})">切断</button>`
+      : `<span class="br-tag err">未接続</span>
+         <button class="br-act conn" onclick="startConnect('${c.id}',${i+1})">接続</button>`;
+    return `<div class="br-row">
+      <span class="br-dot" style="background:${col}"></span>
+      <input class="br-inp" value="${esc(lbl)}" placeholder="ラベル" maxlength="40"
+        oninput="editBrLabel(${i},this.value)">
+      ${tagHtml}
+      <button class="br-del" onclick="delBranch(${i})">×</button>
+    </div>`;
+  }).join('');
+}
+
+// ── Edit actions ────────────────────────────────────────────────
+function editField(f, v) {
+  const c=byId(selectedId); if (!c) return;
+  undoPush(); c[f]=v;
+  document.getElementById('rpTitle').textContent=c.title||'(タイトルなし)';
+  rebuildCard(selectedId); renderLeft(); autoSave();
+}
+
+function setType(type) {
+  const c=byId(selectedId); if (!c||c.type===type) return;
+  if (c.type==='Q' && type==='A' && (c.labels||[]).length) {
+    if (!confirm('Q → A に変換すると分岐がすべて削除されます。')) return;
+    undoPush(); links=links.filter(l=>l.from.cardId!==c.id); c.labels=[];
+  } else undoPush();
+  c.type=type;
+  rebuildCard(selectedId); renderRight(); renderLeft(); autoSave();
+}
+
+function editBrLabel(i, v) {
+  const c=byId(selectedId); if (!c||!c.labels) return;
+  c.labels[i]=v; rebuildCard(selectedId); autoSave();
+}
+
+function addBranch() {
+  const c=byId(selectedId); if (!c) return;
+  if ((c.labels||[]).length>=5) { alert('分岐は最大5つです。'); return; }
+  undoPush();
+  if (!c.labels) c.labels=[];
+  c.labels.push(`選択肢 ${c.labels.length+1}`);
+  rebuildCard(selectedId); renderRight(); renderLeft(); autoSave();
+}
+
+function delBranch(i) {
+  const c=byId(selectedId); if (!c||!c.labels) return;
+  undoPush();
+  const pi=i+1;
+  links=links.filter(l=>!(l.from.cardId===c.id&&l.from.portIndex===pi));
+  links.forEach(l => { if (l.from.cardId===c.id&&l.from.portIndex>pi) l.from.portIndex--; });
+  c.labels.splice(i,1);
+  rebuildCard(selectedId); renderRight(); renderLeft(); redrawLinks(); autoSave();
+}
+
+function disconnBr(portIndex) {
+  undoPush();
+  links=links.filter(l=>!(l.from.cardId===selectedId&&l.from.portIndex===portIndex));
+  rebuildCard(selectedId); renderRight(); renderLeft(); autoSave();
+}
+
+// ── Validation ──────────────────────────────────────────────────
+function validate() {
+  const issues=[];
+  cards.forEach(c => {
+    if (c.type==='START') return;
+    if (!c.type) { issues.push({sev:'warn',c,msg:'タイプが未設定です'}); return; }
+    if (!c.title&&!c.content) issues.push({sev:'warn',c,msg:'タイトル・本文ともに空です'});
+    if (c.type==='Q') {
+      if (!(c.labels||[]).length) { issues.push({sev:'warn',c,msg:'分岐がありません'}); return; }
+      c.labels.forEach((lbl,i) => {
+        if (!links.find(l=>l.from.cardId===c.id&&l.from.portIndex===i+1))
+          issues.push({sev:'error',c,msg:`分岐「${lbl||i+1}」が未接続です`});
+      });
+    }
+  });
+  links.forEach(l => {
+    if (!byId(l.to.cardId)) issues.push({sev:'error',c:{title:'(不明)'},msg:`接続先が存在しません`});
+  });
+  const vb=document.getElementById('valBody');
+  vb.innerHTML = issues.length
+    ? issues.map(it=>`<div class="val-row">
+        <span style="font-size:16px">${it.sev==='error'?'🔴':'🟡'}</span>
+        <div><div style="font-size:13px">${esc(it.msg)}</div>
+        <div style="font-size:11px;color:var(--muted)">${esc(it.c?.title||'')}</div></div>
+      </div>`).join('')
+    : '<div class="val-ok">✅ すべてのカードが正常です</div>';
+  document.getElementById('valOverlay').style.display='flex';
+}
+
+// ── Load ────────────────────────────────────────────────────────
+function loadData(obj) {
+  cards=(obj.cards||[]).map(c => ({
+    id:c.id, type:c.type, x:c.x||0, y:c.y||0,
+    title:c.title||'', content:c.content||'',
+    labels: c.labels || (c.ports>0 ? Array.from({length:c.ports},(_,i)=>`選択肢 ${i+1}`) : [])
+  }));
+  links=obj.links||[];
+  if (obj.meta) meta={...mkMeta(),...obj.meta};
+  if (obj.viewport) { stage.scale({x:obj.viewport.scale||1,y:obj.viewport.scale||1}); stage.position({x:obj.viewport.x||0,y:obj.viewport.y||0}); }
+  selectedId=null; connectFrom=null; undoStack=[];
+  rebuildAll(); renderLeft(); renderRight();
+  document.getElementById('projName').value=meta.projectName||'';
+  if (!obj.viewport) fitAll();
+}
+
+// ── Button wiring ───────────────────────────────────────────────
+document.getElementById('btnAddQ').onclick     = () => addCard('Q');
+document.getElementById('btnAddA').onclick     = () => addCard('A');
+document.getElementById('btnValidate').onclick = () => validate();
+document.getElementById('btnUndo').onclick     = () => undo();
+document.getElementById('btnSave').onclick     = () => { autoSave(); alert('ブラウザに保存しました。\nPathfinder で「ブラウザから読込」を押すと閲覧できます。'); };
+document.getElementById('btnExport').onclick   = () => exportJSON();
+document.getElementById('btnLoad').onclick     = () => document.getElementById('fileLoad').click();
+document.getElementById('rpClose').onclick     = () => deselect();
+document.getElementById('btnDelete').onclick   = () => deleteCard(selectedId);
+document.getElementById('valClose').onclick    = () => { document.getElementById('valOverlay').style.display='none'; };
+document.getElementById('valOverlay').onclick  = e => { if (e.target===document.getElementById('valOverlay')) document.getElementById('valOverlay').style.display='none'; };
+document.getElementById('projName').oninput    = e => { meta.projectName=e.target.value; autoSave(); };
+document.getElementById('fileLoad').onchange   = e => {
+  const f=e.target.files[0]; if (!f) return;
+  const fr=new FileReader();
+  fr.onload=()=>{ try { loadData(JSON.parse(fr.result)); } catch(err) { alert('読み込みエラー: '+err.message); } };
+  fr.readAsText(f); e.target.value='';
+};
+
+// expose to inline onclick
+window.selectCard=selectCard; window.setType=setType;
+window.editField=editField; window.editBrLabel=editBrLabel;
+window.addBranch=addBranch; window.delBranch=delBranch; window.disconnBr=disconnBr;
+window.startConnect=startConnect;
+
+// ── Init ───────────────────────────────────────────────────────
+(function boot() {
+  const raw = localStorage.getItem('zipline:auto');
+  if (raw) { try { loadData(JSON.parse(raw)); return; } catch {} }
+  // fresh project
+  cards=[{ id:'start_node', type:'START', x:300, y:80, title:'START', content:'', labels:[] }];
+  links=[]; meta=mkMeta();
+  rebuildAll(); renderLeft(); renderRight();
+  document.getElementById('projName').value=meta.projectName;
+  fitAll();
+})();
+</script>
+</body>
+</html>

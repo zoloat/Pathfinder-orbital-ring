@@ -140,9 +140,10 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 
 <header class="topbar">
   <div class="topbar-brand">Pathfinder <span>v0.1</span></div>
-  <button class="tb-btn" id="btnDemo" style="background:#eff6ff;border-color:#bdd7fc;color:#1d4ed8">デモを見る</button>
-  <button class="tb-btn" id="btnBrowser">ブラウザから読込</button>
-  <label class="tb-btn" for="fileLoad">JSON を開く</label>
+  <!-- edit-mode only buttons -->
+  <button class="tb-btn edit-only" id="btnDemo" style="background:#eff6ff;border-color:#bdd7fc;color:#1d4ed8">デモを見る</button>
+  <button class="tb-btn edit-only" id="btnBrowser">ブラウザから読込</button>
+  <label class="tb-btn edit-only" for="fileLoad">JSON を開く</label>
   <input id="fileLoad" type="file" accept="application/json" style="display:none">
   <div class="spacer"></div>
   <div class="status-bar" id="statusBar">未読込</div>
@@ -231,9 +232,11 @@ function cW(c) { return BASE_W + Math.max(0, (c.ports||2) - 2) * 60; }
 function cH(c) {
   if (c.type === 'START') return 52;
   const w       = cW(c);
-  const bodyLen = (c.content || '').length;
-  const lines   = Math.ceil(bodyLen / Math.max(1, (w - PAD*2) / 7.5));
-  const bodyH   = Math.min(150, Math.max(18, lines * 18));
+  const text    = c.content || '';
+  const byNewline = text.split('\n').length;
+  const byChars   = text.length ? Math.ceil(text.length / Math.max(1, (w - PAD*2) / 7.5)) : 1;
+  const lines   = Math.max(byNewline, byChars);
+  const bodyH   = Math.min(200, Math.max(18, lines * 18));
   const portsH  = c.type === 'Q' ? (c.ports || 2) * 22 + 6 : 0;
   return Math.max(90, 46 + bodyH + portsH + 12);
 }
@@ -316,15 +319,25 @@ function buildCard(c) {
     text: c.content || '', fontSize:12, fill:'#475569', wrap:'word', lineHeight:1.5
   });
 
-  // Branch labels for Q cards
+  // Branch label rows + ◎ at bottom (Q cards)
   if (isQ) {
+    const n = c.ports || 2;
     const bodyH = bodyNode.height();
     let optY = 34 + bodyH + 6;
-    for (let i = 1; i <= (c.ports || 2); i++) {
-      const lbl = c.labels && c.labels[i-1] ? c.labels[i-1] : `P${i}`;
-      g.add(new Konva.Circle({ x:14, y:optY+9, radius:5, fill: PORT_COL[i-1]||'#888' }));
-      g.add(new Konva.Text({  x:24, y:optY+1, width:W-34, text:lbl, fontSize:12, fill:'#374151', ellipsis:true }));
+    for (let i = 0; i < n; i++) {
+      const lbl = c.labels && c.labels[i] ? c.labels[i] : `P${i+1}`;
+      const col = PORT_COL[i] || '#888';
+      // color bar (left edge, decorative)
+      g.add(new Konva.Rect({ x:6, y:optY+1, width:3, height:18, cornerRadius:2, fill:col, opacity:.7 }));
+      g.add(new Konva.Text({ x:14, y:optY+1, width:W-22, text:lbl, fontSize:12, fill:'#374151', ellipsis:true }));
       optY += 22;
+    }
+    // ◎ ports at card bottom
+    for (let i = 0; i < n; i++) {
+      const col = PORT_COL[i] || '#888';
+      const bx  = W * (i+1) / (n+1);
+      g.add(new Konva.Circle({ x:bx, y:H, radius:9, fill:'#fff', stroke:col, strokeWidth:2.5 }));
+      g.add(new Konva.Circle({ x:bx, y:H, radius:5, fill:col }));
     }
   }
 
@@ -368,10 +381,13 @@ function applyStates() {
 
 // ── Link drawing ──────────────────────────────────────────────
 // Both layers are children of stage → same world coords → use group position directly.
-function cardBottom(id) {
+function cardBottom(id, portIndex) {
   const g = groups.get(id); if (!g) return { x:0, y:0 };
   const c = cardMap.get(id);
-  return { x: g.x() + (c.type==='START' ? 90 : cW(c)/2), y: g.y() + cH(c) };
+  if (c.type==='START') return { x: g.x()+90, y: g.y()+cH(c) };
+  const n = c.ports || 2;
+  const i = (portIndex || 1) - 1;
+  return { x: g.x() + cW(c)*(i+1)/(n+1), y: g.y()+cH(c) };
 }
 function cardTop(id) {
   const g = groups.get(id); if (!g) return { x:0, y:0 };
@@ -402,7 +418,7 @@ function redrawLinks() {
 
   linkById.forEach((L, lid) => {
     if (!groups.has(L.from.cardId) || !groups.has(L.to.cardId)) return;
-    const a = cardBottom(L.from.cardId);
+    const a = cardBottom(L.from.cardId, L.from.portIndex);
     const b = cardTop(L.to.cardId);
     const isPath = onPath.has(lid);
     const isNext = L.from.cardId === currentId && nextTargets.has(L.to.cardId);
@@ -629,10 +645,35 @@ const DEMO = {
 };
 
 // ── Init ──────────────────────────────────────────────────────
-// デモデータで起動（ブラウザデータがあればそちらを優先）
-(function boot() {
-  const raw = localStorage.getItem('zipline:auto') || localStorage.getItem('zipline:canvas');
-  if (raw) { try { loadData(JSON.parse(raw)); return; } catch {} }
+(async function boot() {
+  const params  = new URLSearchParams(location.search);
+  const isEdit  = params.get('mode') === 'edit';
+  const fileUrl = params.get('file');
+
+  // edit-mode ボタンの表示切替
+  document.querySelectorAll('.edit-only').forEach(el => {
+    el.style.display = isEdit ? '' : 'none';
+  });
+
+  // ?file=xxx → fetch して自動読込
+  if (fileUrl) {
+    try {
+      const res = await fetch(fileUrl);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      loadData(await res.json());
+      return;
+    } catch (e) {
+      document.getElementById('statusBar').textContent = '読込失敗: ' + e.message;
+    }
+  }
+
+  // edit モード → ブラウザ保存データ優先
+  if (isEdit) {
+    const raw = localStorage.getItem('zipline:auto') || localStorage.getItem('zipline:canvas');
+    if (raw) { try { loadData(JSON.parse(raw)); return; } catch {} }
+  }
+
+  // それ以外はデモ
   loadData(DEMO);
 })();
 </script>

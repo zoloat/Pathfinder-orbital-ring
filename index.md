@@ -44,9 +44,10 @@ Zipline と Pathfinder が共有するカードデータの根幹仕様は以下
 ---
 
 ## 更新履歴 / Revision Log
+
 | Date | Version | Description |
-|------|----------|-------------|
+| --- | --- | --- |
 | 2025-10 | v0.1 | 初版作成 / Initial draft |
-| – | – | – |
+| 2026-03 | v0.1 | Zipline v0.1・Pathfinder v0.1 実装完了 |
 
 ---
