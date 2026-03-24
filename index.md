@@ -27,11 +27,12 @@ a natural flow: philosophy → structure → behavior → operation → future p
 
 ---
 
-## カード共通スキーマ / Card Specification
+## Pathfinder 仕様 / Pathfinder Specification
 
-Zipline と Pathfinder が共有するカードデータの根幹仕様は以下に定義されています。
-
-- **[CardSpec v0.1](Pathfinder/specs/CardSpec_v0.1.md)** — `id`, `type`, `body`, `branches` の型・制約・サンプル JSON
+| ファイル | 内容 |
+| --- | --- |
+| [Pathfinder_v0.1.md](Pathfinder/specs/Pathfinder_v0.1.md) | 起動オプション・レイアウト・ナビゲーション仕様 |
+| [CardSpec_v0.1.md](Pathfinder/specs/CardSpec_v0.1.md) | カード共通スキーマ（`id`, `type`, `body`, `branches`） |
 
 ---
 
