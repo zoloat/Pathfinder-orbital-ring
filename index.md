@@ -27,10 +27,18 @@ a natural flow: philosophy → structure → behavior → operation → future p
 
 ---
 
+## カード共通スキーマ / Card Specification
+
+Zipline と Pathfinder が共有するカードデータの根幹仕様は以下に定義されています。
+
+- **[CardSpec v0.1](Pathfinder/specs/CardSpec_v0.1.md)** — `id`, `type`, `body`, `branches` の型・制約・サンプル JSON
+
+---
+
 ## 関連リンク / Related
 - **Parent Repository:** Pathfinder-orbital-ring
-- **Subsystem:** Zipline (current folder)
-- **Core Specification:** Card Data v0.1 (see 01_DataSpec)
+- **Zipline Spec:** [docs/zipline/v1/spec/](docs/zipline/v1/spec/)
+- **Card Spec:** [Pathfinder/specs/CardSpec_v0.1.md](Pathfinder/specs/CardSpec_v0.1.md)
 - **Project Wiki:** (準備中 / Coming soon)
 
 ---

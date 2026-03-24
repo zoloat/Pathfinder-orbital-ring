@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Zipline Canvas v0.85r3b</title>
+<!-- NOTE: このファイルはChatGPTセッションからのエクスポートで文字化けが含まれています。
+     参考資料として保管。Pathfinder v0.1 が後継ビューワーです。 -->
+<style>
+  :root{
+    --bg:#f7f7f7; --panel:#fff; --line:#e9e9e9; --brand:#1976d2; --text:#222; --muted:#6b7280;
+    --q:#1976d2; --a:#2e7d32; --danger:#c62828; --overlay: rgba(0,0,0,.35); --amber:#f59e0b;
+    --leftw:280px; --rightw:340px;
+  }
+  html,body{height:100%;margin:0;background:var(--bg);color:var(--text);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans JP",sans-serif}
+  header.topbar{position:fixed;inset:0 0 auto 0;height:56px;background:#fff;display:flex;gap:8px;align-items:center;
+    padding:0 12px;border-bottom:1px solid #ececec;z-index:30}
+  header .title{font-weight:700}
+  header .btn, header button{appearance:none;border:1px solid #ddd;background:#fff;border-radius:10px;
+    padding:8px 12px;font-size:14px;cursor:pointer}
+  header .btn:hover, header button:hover{background:#f6f9ff;border-color:#cfe3ff}
+  #container{position:fixed;inset:56px var(--rightw) 0 var(--leftw);}
+  #leftPane, #rightPane{position:fixed;top:56px;bottom:0;background:#fff;border-left:1px solid #eee;z-index:25;overflow:auto}
+  #leftPane{left:0;width:var(--leftw);border-left:none;border-right:1px solid #eee}
+  #rightPane{right:0;width:var(--rightw)}
+  #leftPane header, #rightPane header{position:sticky;top:0;background:#fff;border-bottom:1px solid #eee;padding:10px 12px;z-index:1}
+  #leftPane .sec, #rightPane .sec{padding:10px 12px}
+  .sec h3{margin:6px 0 8px 0;font-size:14px;color:#111}
+  .pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;border:1px solid #e5e7eb;background:#f8fafc;margin-left:6px;color:#374151}
+  .list{display:flex;flex-direction:column;gap:6px}
+  .card-li{display:flex;align-items:center;gap:8px;padding:6px 8px;border:1px solid #eee;border-radius:8px;cursor:pointer}
+  .acc-head{justify-content:space-between; font-weight:700; border-color:#dbeafe; background:#eff6ff;}
+  .acc-head.a{border-color:#d1fae5; background:#ecfdf5;}
+  .acc-chevron{margin-left:auto; font-weight:900;}
+  .card-li:hover{background:#f9fafb;border-color:#dbeafe}
+  .dot{width:10px;height:10px;border-radius:50%}
+  .dot.q{background:var(--q)} .dot.a{background:var(--a)} .dot.start{background:var(--brand)}
+  .muted{color:var(--muted);font-size:12px}
+  #fab{position:fixed;right:calc(var(--rightw) + 24px);bottom:24px;width:64px;height:64px;border-radius:50%;background:#1976d2;
+    color:#fff;font-size:36px;line-height:64px;text-align:center;box-shadow:0 10px 24px rgba(0,0,0,.25);
+    cursor:pointer;user-select:none;z-index:20}
+  #fab:hover{transform:scale(1.06)}
+  .hint{position:fixed;left:calc(var(--leftw) + 12px);bottom:10px;color:#6b7280;font-size:12px;z-index:20}
+  .overlay{position:fixed;inset:56px 0 0 0;background:var(--overlay);display:none;align-items:center;justify-content:center;z-index:40}
+  .modal{background:#fff;min-width:860px;max-width:1000px;max-height:82vh;border:2px solid #dadada;border-radius:12px;
+    box-shadow:0 20px 60px rgba(0,0,0,.35);display:flex;flex-direction:column}
+  .modal header{position:relative;inset:auto;height:auto;border-bottom:1px solid #eee;padding:12px 16px;gap:12px;display:flex;align-items:center}
+  .modal header .grow{flex:1}
+  .modal .body{padding:16px 16px 0;overflow:auto}
+  .modal .row{display:flex;gap:12px;margin:8px 0;align-items:center}
+  .modal label{font-size:13px;color:#333;min-width:92px}
+  .modal input[type="text"], .modal textarea, .modal select{
+    width:100%;padding:8px 10px;border:1px solid #ccc;border-radius:8px;font-size:14px
+  }
+  .modal textarea{min-height:90px;resize:vertical}
+  .ports{border-top:1px dashed #ececec;margin-top:12px;padding-top:10px}
+  .port-row{display:grid;grid-template-columns:88px 1fr 1fr 24px;gap:12px;align-items:center;margin:6px 0}
+  .modal footer{display:flex;justify-content:space-between;align-items:center;border-top:1px solid #eee;padding:12px 16px;gap:12px}
+  .btn-primary{background:#1976d2;color:#fff;border:1px solid #1664bf}
+  .btn-ghost{background:#fff;border:1px solid #ddd}
+  .modal .footer-right{display:flex;gap:8px}
+  .modal .footer-left{display:flex;gap:8px}
+  body.dragging #leftPane, body.dragging #rightPane { pointer-events: none; }
+</style>
+</head>
+<body>
+  <!-- 文字化けあり: オリジナルのChatGPTセッション由来のファイルを参考保管 -->
+  <p style="padding:20px;color:#c62828;font-weight:bold">
+    ⚠ このファイルは文字化けを含む参考資料です。<br>
+    Zipline エディタとして使用する場合は文字化けを修正してください。<br>
+    閲覧（ランタイム）には <code>Pathfinder/Pathfinder_v0.1.html</code> を使用してください。
+  </p>
+  <details>
+    <summary style="padding:0 20px;cursor:pointer;color:#1976d2">元のソースコードを表示</summary>
+    <pre style="padding:20px;font-size:11px;overflow:auto;background:#f8f8f8">
+(オリジナルHTMLソースは文字化けのため省略。GitHubリポジトリのコミット履歴を参照してください。)
+    </pre>
+  </details>
+</body>
+</html>

@@ -111,9 +111,53 @@ and lightweight deltas for future collaborative editing.
 
 ---
 
+## 9. meta.json 構造 / Project Metadata Structure
+
+`meta.json` はプロジェクト全体の識別情報と設定を保持する。`editor.json`（UI状態）とは分離され、
+Git でのバージョン管理・エクスポートの両方で主要なファイルとなる。
+
+`meta.json` stores project-level identification and configuration.
+It is separate from `editor.json` (UI state) and is always included in exports.
+
+### 9.1 フィールド定義 / Fields
+
+| フィールド | 型 | 必須 | 説明 |
+|-----------|-----|------|------|
+| `version` | `string` | ✅ | CardSpec バージョン（例: `"0.1"`） |
+| `projectName` | `string` | ✅ | プロジェクトの表示名 |
+| `projectId` | `string` | ✅ | プロジェクト一意ID（UUIDv4推奨） |
+| `createdAt` | `string` | ✅ | 作成日時（ISO 8601形式） |
+| `updatedAt` | `string` | ✅ | 最終更新日時（ISO 8601形式） |
+| `author` | `string` | — | 作成者名（任意） |
+| `description` | `string` | — | プロジェクトの説明（任意） |
+| `tags` | `string[]` | — | 分類タグ（任意） |
+
+### 9.2 サンプル / Example
+
+```json
+{
+  "version": "0.1",
+  "projectId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "projectName": "サーバー障害トラブルシューティング",
+  "createdAt": "2025-10-01T09:00:00Z",
+  "updatedAt": "2025-10-15T14:30:00Z",
+  "author": "zoloat",
+  "description": "サーバー系障害対応フローのPathfinderデッキ",
+  "tags": ["server", "troubleshooting", "infra"]
+}
+```
+
+### 9.3 更新ポリシー / Update Policy
+- `updatedAt` は Zipline が保存するたびに自動更新する
+- `createdAt` は作成時のみ設定し、以後変更しない
+- `projectId` は変更不可（コピー時は新しいIDを発行）
+
+---
+
 ## 関連章 / Related
-- [02_UI_Behavior.md](02_UI_Behavior.md) – UI動作 / UI Behavior  
-- [05_GitStructure.md](05_GitStructure.md) – Git構成と管理 / Git Structure  
+- [02_UI_Behavior.md](02_UI_Behavior.md) – UI動作 / UI Behavior
+- [05_GitStructure.md](05_GitStructure.md) – Git構成と管理 / Git Structure
 - [06_FuturePlans.md](06_FuturePlans.md) – 拡張計画 / Future Extensions
+- [../../../Pathfinder/specs/CardSpec_v0.1.md](../../../Pathfinder/specs/CardSpec_v0.1.md) – カード共通スキーマ
 
 ---

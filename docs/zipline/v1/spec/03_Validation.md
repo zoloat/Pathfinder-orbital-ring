@@ -124,9 +124,77 @@ error prioritization, and format alignment with Pathfinder’s validation logs.
 
 ---
 
+## 7. validate.json スキーマ / validate.json Schema
+
+`validate.json` はグローバル検証の出力ファイルであり、一時キャッシュとして扱う（Git 管理不要）。
+
+### 7.1 トップレベル構造
+
+```json
+{
+  "generatedAt": "2025-10-15T14:30:00Z",
+  "cardSpecVersion": "0.1",
+  "summary": {
+    "total": 12,
+    "ok": 9,
+    "warnings": 2,
+    "errors": 1
+  },
+  "results": [ ... ]
+}
+```
+
+| フィールド | 型 | 説明 |
+|-----------|-----|------|
+| `generatedAt` | `string` (ISO 8601) | 検証実行日時 |
+| `cardSpecVersion` | `string` | 対象 CardSpec のバージョン |
+| `summary.total` | `number` | 対象カード総数 |
+| `summary.ok` | `number` | 正常カード数 |
+| `summary.warnings` | `number` | 警告カード数 |
+| `summary.errors` | `number` | エラーカード数 |
+| `results` | `Result[]` | カードごとの検証結果 |
+
+### 7.2 Result オブジェクト
+
+```json
+{
+  "cardId": "550e8400-e29b-41d4-a716-446655440000",
+  "status": "error",
+  "issues": [
+    {
+      "code": "BRANCH_UNCONNECTED",
+      "severity": "error",
+      "message": "Branch 'いいえ' has no target",
+      "branchIndex": 1
+    }
+  ]
+}
+```
+
+| フィールド | 型 | 説明 |
+|-----------|-----|------|
+| `cardId` | `string` | 対象カードの `id` |
+| `status` | `"ok" \| "warning" \| "error"` | カード全体の最悪状態 |
+| `issues` | `Issue[]` | 個別問題リスト（正常なら空配列） |
+
+### 7.3 Issue コード一覧 / Issue Codes
+
+| code | severity | 意味 |
+|------|----------|------|
+| `BRANCH_UNCONNECTED` | error | Q カードの分岐に未接続の `target` がある |
+| `INVALID_OUTPUT` | error | A カードに出力接続が存在する |
+| `BROKEN_REFERENCE` | error | `target` が参照する `id` が存在しない |
+| `TYPE_UNDEFINED` | error | `type` が `null` のままエクスポートしようとしている |
+| `BODY_EMPTY` | warning | `body` が空文字列 |
+| `NO_BRANCHES` | warning | Q カードに分岐が 0 個 |
+| `UNREACHABLE` | warning | 開始カードから到達不能なカード |
+
+---
+
 ## 関連章 / Related
-- [02_UI_Behavior.md](02_UI_Behavior.md) – UI挙動と編集操作 / UI Behavior  
-- [04_EditorMeta.md](04_EditorMeta.md) – エディタメタ情報 / Editor Meta Data  
+- [02_UI_Behavior.md](02_UI_Behavior.md) – UI挙動と編集操作 / UI Behavior
+- [04_EditorMeta.md](04_EditorMeta.md) – エディタメタ情報 / Editor Meta Data
 - [05_GitStructure.md](05_GitStructure.md) – Git運用構造 / Git Commit Policy
+- [../../../Pathfinder/specs/CardSpec_v0.1.md](../../../Pathfinder/specs/CardSpec_v0.1.md) – カード共通スキーマ
 
 ---

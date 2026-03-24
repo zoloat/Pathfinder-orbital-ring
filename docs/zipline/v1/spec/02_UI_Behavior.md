@@ -163,9 +163,74 @@ Duplication briefly greys out the card to show action in progress.
 
 ---
 
+## 9. 型変換確認ダイアログ / Type Conversion Confirmation Dialog
+
+### 9.1 Q → A 変換時
+
+Q カードを A カードに変換すると、すべての分岐（branches）が削除される。
+この操作は不可逆なため、確認ダイアログを必ず表示する。
+
+| 要素 | 内容 |
+|------|------|
+| **タイトル** | 「分岐を削除しますか？」 |
+| **本文** | 「Q → A に変更すると、このカードの分岐がすべて削除されます。本文は保持されます。」 |
+| **ボタン（確定）** | 「変更する」（破壊的アクション、赤系ボタン） |
+| **ボタン（キャンセル）** | 「キャンセル」（グレー、デフォルトフォーカス） |
+| **キャンセル時の挙動** | type は変更されず、ダイアログを閉じる。カードは Q のまま保持。 |
+| **確定時の挙動** | branches を空配列に設定 → type を `"A"` に変更 → 自動保存 → Undo 対象に登録 |
+
+When converting a Q card to A, a confirmation dialog must be shown before deleting branches.
+Cancelling leaves the card unchanged. Confirming deletes all branches and sets type to `"A"`.
+
+### 9.2 A → Q 変換時
+
+A カードを Q に変換する場合は分岐が追加されるだけで**破壊操作はない**ため、確認ダイアログは不要。
+type を `"Q"` に変更し、空の branches 配列を初期化するだけでよい。
+
+---
+
+## 10. Undo / Redo 仕様 / Undo & Redo Specification
+
+### 10.1 対象操作（Undo スタックに積む操作）
+
+| 操作 | Undo 後の状態 |
+|------|--------------|
+| カード作成 | カードを削除 |
+| カード削除 | カードを復元（接続も含む） |
+| カード移動 | 移動前の座標に戻す |
+| 本文編集 | 編集前のテキストに戻す |
+| type 変更（Q→A） | A→Q に戻し、削除された branches を復元 |
+| type 変更（A→Q） | Q→A に戻し、空の branches を削除 |
+| 分岐追加 | 分岐を削除 |
+| 分岐削除 | 分岐を復元（target も含む） |
+| 接続設定 | target を `null` に戻す |
+| 接続解除 | target を元の値に戻す |
+| 複製 | 複製されたカードを削除 |
+
+### 10.2 対象外操作（Undo 不可）
+
+- キャンバスのパン・ズーム（UI状態のため）
+- テーマ変更
+- スナップ設定変更
+- プロジェクト名の変更（meta.json の操作）
+
+### 10.3 スタック仕様
+
+| 項目 | 値 |
+|------|----|
+| スタック深さ上限 | 100 操作 |
+| スコープ | グローバル（カード横断） |
+| 自動保存との関係 | 自動保存は Undo スタックをリセットしない |
+| セッション持続性 | セッション内のみ。再起動時にスタックはクリアされる |
+
+Undo/Redo operates globally (not per-card) with a stack depth of 100.
+Auto-save does not clear the stack. The stack resets on session start.
+
+---
+
 ## 関連章 / Related
-- [01_DataSpec.md](01_DataSpec.md) – データ取り扱い / Data handling rules  
-- [03_Validation.md](03_Validation.md) – 検証と状態判定 / Validation logic  
+- [01_DataSpec.md](01_DataSpec.md) – データ取り扱い / Data handling rules
+- [03_Validation.md](03_Validation.md) – 検証と状態判定 / Validation logic
 - [04_EditorMeta.md](04_EditorMeta.md) – エディタ設定 / Editor metadata
 
 ---

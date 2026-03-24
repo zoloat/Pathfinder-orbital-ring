@@ -122,8 +122,62 @@ and release signing with checksums.
 
 ---
 
+## 11. エクスポートアーカイブ仕様 / Export Archive Specification
+
+### 11.1 形式 / Format
+
+エクスポートアーカイブは **ZIP 形式**（`.zip`）とする。
+
+### 11.2 アーカイブ内容 / Archive Contents
+
+```
+export_<projectId>_v<version>.zip
+├── cards.json          ← 必須（カードデータ本体）
+├── meta.json           ← 必須（プロジェクト識別情報）
+├── editor.json         ← 任意（UI状態。デフォルト除外）
+└── validate.json       ← 任意（検証済みの場合のみ同梱）
+```
+
+| ファイル | 同梱 | 備考 |
+|---------|------|------|
+| `cards.json` | 必須 | これがない場合エクスポート不可 |
+| `meta.json` | 必須 | プロジェクト名・バージョン情報 |
+| `editor.json` | 任意 | エクスポートオプションで選択 |
+| `validate.json` | 任意 | 事前に検証を実行した場合のみ |
+
+### 11.3 ファイル命名規則 / Naming Convention
+
+```
+export_<projectId>_v<version>.zip
+```
+
+例: `export_a1b2c3d4_v0.1.zip`
+
+- `projectId`: `meta.json` の `projectId` から先頭 8 文字
+- `version`: `meta.json` の `version` フィールド（例: `0.1`）
+- 同名ファイルが存在する場合は上書き確認ダイアログを表示する
+
+### 11.4 エクスポート前提条件 / Prerequisites
+
+エクスポートを実行する前に、以下の条件をすべて満たす必要がある:
+
+1. すべてのカードの `type` が設定済み（`null` のカードが存在しない）
+2. `meta.json` の `projectName` が空でない
+3. `cards.json` にカードが 1 枚以上存在する
+
+条件を満たさない場合はエクスポートボタンを無効化し、理由を表示する。
+
+### 11.5 Git との関係 / Relation to Git
+
+- `export.zip` は通常 `.gitignore` で除外する（`validate.json` と同様）
+- タグ付きリリース（`export:` prefix コミット）の場合のみリポジトリに含める
+- GitHub Releases にアタッチする場合はタグ名と ZIP ファイル名を一致させる
+
+---
+
 ## 関連章 / Related
-- [04_EditorMeta.md](04_EditorMeta.md) – エディタメタ構造 / Editor Metadata  
+- [04_EditorMeta.md](04_EditorMeta.md) – エディタメタ構造 / Editor Metadata
 - [06_FuturePlans.md](06_FuturePlans.md) – 将来拡張計画 / Future Plans
+- [../../../Pathfinder/specs/CardSpec_v0.1.md](../../../Pathfinder/specs/CardSpec_v0.1.md) – カード共通スキーマ
 
 ---

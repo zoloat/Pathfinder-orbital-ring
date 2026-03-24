@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pathfinder v0.1</title>
+<style>
+:root {
+  --nav-w: 360px;
+  --top-h: 52px;
+  --brand: #1976d2;
+  --green: #2e7d32;
+  --bg: #f1f5f9;
+  --panel: #ffffff;
+  --border: #e2e8f0;
+  --text: #1e293b;
+  --muted: #64748b;
+  --shadow: 0 1px 3px rgba(0,0,0,.1), 0 1px 2px rgba(0,0,0,.06);
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; background: var(--bg); color: var(--text);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans JP", sans-serif; }
+
+/* ── Top bar ── */
+.topbar {
+  position: fixed; inset: 0 0 auto 0; height: var(--top-h);
+  background: var(--panel); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 8px; padding: 0 16px; z-index: 40;
+}
+.topbar-brand { font-weight: 800; font-size: 16px; color: var(--brand); letter-spacing: -0.3px; }
+.topbar-brand span { color: var(--muted); font-weight: 400; font-size: 13px; }
+.tb-btn {
+  appearance: none; background: var(--panel); border: 1px solid var(--border);
+  border-radius: 8px; padding: 6px 14px; font-size: 13px; cursor: pointer; font-weight: 500;
+}
+.tb-btn:hover { background: #f0f7ff; border-color: #bdd7fc; }
+.spacer { flex: 1; }
+.status-bar { font-size: 12px; color: var(--muted); padding: 0 8px; }
+
+/* ── Nav pane ── */
+#navPane {
+  position: fixed; left: 0; top: var(--top-h); bottom: 0; width: var(--nav-w);
+  background: var(--panel); border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; z-index: 30; overflow: hidden;
+}
+.nav-header {
+  padding: 16px 16px 12px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.type-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;
+}
+.type-badge.Q { background: #dbeafe; color: #1d4ed8; }
+.type-badge.A { background: #dcfce7; color: #15803d; }
+.card-title { font-size: 17px; font-weight: 700; line-height: 1.4; color: var(--text); }
+
+.nav-body-wrap { flex: 1; overflow-y: auto; padding: 14px 16px; }
+.card-body { font-size: 14px; line-height: 1.8; color: #334155; white-space: pre-wrap; margin-bottom: 16px; }
+
+/* ── Branch buttons ── */
+.branches { display: flex; flex-direction: column; gap: 7px; }
+.branch-btn {
+  display: flex; align-items: center; gap: 10px;
+  padding: 11px 14px; border-radius: 10px; border: 2px solid var(--border);
+  background: var(--panel); cursor: pointer; font-size: 14px; font-weight: 600;
+  text-align: left; transition: all 0.12s ease; user-select: none;
+}
+.branch-btn:not(:disabled):hover {
+  background: #f0f7ff; border-color: var(--brand);
+  transform: translateX(4px); box-shadow: 0 2px 10px rgba(25,118,210,.15);
+}
+.branch-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.b-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.b-arrow { margin-left: auto; color: var(--muted); font-size: 14px; }
+
+/* ── Answer complete ── */
+.answer-box {
+  margin-top: 6px; padding: 14px 16px; background: #f0fdf4;
+  border: 1.5px solid #86efac; border-radius: 10px; font-size: 14px;
+  color: #166534; font-weight: 600; line-height: 1.5;
+}
+
+/* ── History ── */
+.history-wrap {
+  flex-shrink: 0; border-top: 1px solid var(--border); padding: 10px 14px;
+  max-height: 200px; overflow-y: auto;
+}
+.history-label {
+  font-size: 11px; font-weight: 700; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;
+}
+.h-row { display: flex; align-items: baseline; gap: 5px; font-size: 12px; color: #475569; padding: 2px 0; }
+.h-row .h-title { font-weight: 600; color: var(--text); }
+.h-row .h-choice { color: var(--brand); font-weight: 700; }
+
+/* ── Actions ── */
+.nav-actions {
+  flex-shrink: 0; border-top: 1px solid var(--border); padding: 10px 14px; display: flex; gap: 8px;
+}
+.nav-actions button {
+  flex: 1; padding: 9px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--panel); cursor: pointer; font-size: 13px; font-weight: 600;
+}
+.nav-actions button:hover { background: #f8fafc; }
+.nav-actions button.primary { background: var(--brand); color: #fff; border-color: #1565c0; }
+.nav-actions button.primary:hover { background: #1565c0; }
+
+/* ── Empty state ── */
+.empty-state {
+  flex: 1; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; padding: 32px; text-align: center; color: var(--muted);
+}
+.empty-icon { font-size: 52px; margin-bottom: 14px; }
+.empty-title { font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+.empty-desc { font-size: 13px; line-height: 1.7; }
+
+/* ── Canvas ── */
+#container {
+  position: fixed; left: var(--nav-w); top: var(--top-h); right: 0; bottom: 0;
+  background-color: #f1f5f9;
+  background-image: radial-gradient(circle, #cbd5e1 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+.canvas-hint { position: fixed; right: 12px; bottom: 10px; font-size: 11px; color: var(--muted); z-index: 10; }
+
+/* ── Mobile: nav only ── */
+@media (max-width: 640px) {
+  :root { --nav-w: 100vw; }
+  #navPane { width: 100%; border-right: none; }
+  #container, .canvas-hint { display: none; }
+  .topbar { gap: 6px; padding: 0 10px; overflow-x: auto; }
+  .tb-btn, label.tb-btn { padding: 6px 10px; font-size: 12px; white-space: nowrap; }
+  .status-bar { display: none; }
+  .branch-btn { font-size: 15px; padding: 14px 14px; }
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-brand">Pathfinder <span>v0.1</span></div>
+  <button class="tb-btn" id="btnDemo" style="background:#eff6ff;border-color:#bdd7fc;color:#1d4ed8">デモを見る</button>
+  <button class="tb-btn" id="btnBrowser">ブラウザから読込</button>
+  <label class="tb-btn" for="fileLoad">JSON を開く</label>
+  <input id="fileLoad" type="file" accept="application/json" style="display:none">
+  <div class="spacer"></div>
+  <div class="status-bar" id="statusBar">未読込</div>
+  <button class="tb-btn" id="btnReset">↺ リセット</button>
+</header>
+
+<aside id="navPane">
+  <div id="navInner" style="display:flex;flex-direction:column;height:100%"></div>
+</aside>
+
+<div id="container"></div>
+<div class="canvas-hint">Ctrl+ホイール = ズーム　／　Space+ドラッグ or 背景ドラッグ = パン</div>
+
+<script src="https://cdn.jsdelivr.net/npm/konva@9.3.3/konva.min.js"></script>
+<script>
+'use strict';
+
+// ── Constants ──────────────────────────────────────────────────
+const BASE_W   = 260;
+const PORT_COL = ['#1976d2','#d32f2f','#2e7d32','#fbc02d','#383838'];
+const PAD      = 10;
+
+// ── State ──────────────────────────────────────────────────────
+let rawData   = null;
+let cardMap   = new Map();   // id → card data object
+let outMap    = new Map();   // cardId → { portIndex(number) → targetCardId }
+let linkById  = new Map();   // linkId → link object
+let history   = [];          // [{cardId, portIndex, label}, …]
+let currentId = null;
+
+// ── Konva ──────────────────────────────────────────────────────
+const navW = () => parseInt(getComputedStyle(document.documentElement).getPropertyValue('--nav-w')) || 360;
+const stageW = () => innerWidth - navW();
+const stageH = () => innerHeight - 52;
+
+const stage    = new Konva.Stage({ container: 'container', width: stageW(), height: stageH() });
+const linkLayer = new Konva.Layer();
+const cardLayer = new Konva.Layer();
+stage.add(linkLayer, cardLayer);
+
+let groups = new Map();  // cardId → Konva.Group
+
+window.addEventListener('resize', () => stage.size({ width: stageW(), height: stageH() }));
+
+// ── Zoom / Pan ─────────────────────────────────────────────────
+let spaceHeld = false;
+
+document.addEventListener('keydown', e => {
+  if (e.code === 'Space' && !spaceHeld && !['INPUT','TEXTAREA'].includes(e.target.tagName)) {
+    e.preventDefault(); spaceHeld = true;
+    stage.draggable(true); document.body.style.cursor = 'grab';
+  }
+});
+document.addEventListener('keyup', e => {
+  if (e.code === 'Space') {
+    spaceHeld = false; stage.draggable(false); document.body.style.cursor = '';
+  }
+});
+
+stage.on('mousedown', e => {
+  if (e.target === stage || spaceHeld) {
+    stage.draggable(true); document.body.style.cursor = 'grabbing';
+  } else if (!spaceHeld) stage.draggable(false);
+});
+stage.on('mouseup', () => {
+  if (!spaceHeld) { stage.draggable(false); document.body.style.cursor = ''; }
+});
+stage.on('dragmove', () => redrawLinks());
+stage.on('dragend',  () => { if (!spaceHeld) stage.draggable(false); });
+
+stage.on('wheel', e => {
+  e.evt.preventDefault();
+  const old = stage.scaleX();
+  const ptr = stage.getPointerPosition();
+  const wx  = (ptr.x - stage.x()) / old;
+  const wy  = (ptr.y - stage.y()) / old;
+  const neo = Math.max(0.15, Math.min(4, old * (e.evt.deltaY > 0 ? 1/1.1 : 1.1)));
+  stage.scale({ x: neo, y: neo });
+  stage.position({ x: ptr.x - wx * neo, y: ptr.y - wy * neo });
+  stage.batchDraw();
+  redrawLinks();
+});
+
+// ── Card dimensions ────────────────────────────────────────────
+function cW(c) { return BASE_W + Math.max(0, (c.ports||2) - 2) * 60; }
+function cH(c) {
+  if (c.type === 'START') return 52;
+  const w       = cW(c);
+  const bodyLen = (c.content || '').length;
+  const lines   = Math.ceil(bodyLen / Math.max(1, (w - PAD*2) / 7.5));
+  const bodyH   = Math.min(150, Math.max(18, lines * 18));
+  const portsH  = c.type === 'Q' ? (c.ports || 2) * 22 + 6 : 0;
+  return Math.max(90, 46 + bodyH + portsH + 12);
+}
+
+// ── Load data ─────────────────────────────────────────────────
+function loadData(obj) {
+  rawData = obj;
+  cardMap.clear(); outMap.clear(); linkById.clear();
+  history = []; currentId = null;
+  cardLayer.destroyChildren(); linkLayer.destroyChildren(); groups.clear();
+
+  for (const c of obj.cards || []) {
+    cardMap.set(c.id, c);
+    outMap.set(c.id, {});
+  }
+  for (const L of obj.links || []) {
+    linkById.set(L.id, L);
+    const om = outMap.get(L.from.cardId) || {};
+    om[L.from.portIndex] = L.to.cardId;
+    outMap.set(L.from.cardId, om);
+  }
+
+  // First card = START's link target
+  for (const L of obj.links || []) {
+    if (L.from.cardId === 'start_node') { currentId = L.to.cardId; break; }
+  }
+
+  // Place cards (stage at identity first)
+  stage.scale({ x:1, y:1 }); stage.position({ x:0, y:0 });
+  cardMap.forEach(c => {
+    if (c.type === 'START') buildStartNode(c);
+    else buildCard(c);
+  });
+
+  fitAll();
+  redrawLinks();
+  applyStates();
+  renderNav();
+  setStatus();
+  if (currentId) focusCard(currentId, false);
+}
+
+// ── Build START node ───────────────────────────────────────────
+function buildStartNode(c) {
+  const W = 180, H = 52;
+  const g = new Konva.Group({ x: c.x, y: c.y, id: c.id });
+  g.add(new Konva.Rect({ width:W, height:H, cornerRadius:H/2,
+    fill:'#1565c0', stroke:'#0d47a1', strokeWidth:2, shadowBlur:8, shadowOpacity:.2 }));
+  g.add(new Konva.Text({ text:'START', width:W, height:H,
+    align:'center', verticalAlign:'middle', fontSize:17, fontStyle:'bold', fill:'#fff' }));
+  cardLayer.add(g); groups.set(c.id, g);
+}
+
+// ── Build card ────────────────────────────────────────────────
+function buildCard(c) {
+  const W = cW(c), H = cH(c);
+  const isQ = c.type === 'Q';
+  const stroke = isQ ? '#1976d2' : '#2e7d32';
+
+  const g = new Konva.Group({ x: c.x, y: c.y, id: c.id });
+
+  const rect = new Konva.Rect({
+    width:W, height:H, cornerRadius:12,
+    fill:'#fff', stroke, strokeWidth:2,
+    shadowBlur:6, shadowColor:'#000', shadowOpacity:.08
+  });
+
+  // Type badge
+  const badge = new Konva.Label({ x:8, y:-11 });
+  badge.add(new Konva.Tag({ fill: isQ ? '#dbeafe':'#dcfce7', stroke: isQ ? '#bfdbfe':'#bbf7d0', cornerRadius:5 }));
+  badge.add(new Konva.Text({ text:c.type, fontSize:11, fontStyle:'bold', padding:3, fill: isQ ? '#1e40af':'#166534' }));
+
+  const titleNode = new Konva.Text({
+    x:PAD, y:8, width:W-PAD*2, height:24,
+    text: c.title || '', fontSize:14, fontStyle:'bold', fill:'#1e293b',
+    wrap:'word', ellipsis:true
+  });
+  const bodyNode = new Konva.Text({
+    x:PAD, y:34, width:W-PAD*2,
+    text: c.content || '', fontSize:12, fill:'#475569', wrap:'word', lineHeight:1.5
+  });
+
+  // Branch labels for Q cards
+  if (isQ) {
+    const bodyH = bodyNode.height();
+    let optY = 34 + bodyH + 6;
+    for (let i = 1; i <= (c.ports || 2); i++) {
+      const lbl = c.labels && c.labels[i-1] ? c.labels[i-1] : `P${i}`;
+      g.add(new Konva.Circle({ x:14, y:optY+9, radius:5, fill: PORT_COL[i-1]||'#888' }));
+      g.add(new Konva.Text({  x:24, y:optY+1, width:W-34, text:lbl, fontSize:12, fill:'#374151', ellipsis:true }));
+      optY += 22;
+    }
+  }
+
+  g.add(rect, badge, titleNode, bodyNode);
+  g.setAttr('rect', rect);
+
+  // Canvas click → navigate if this card is directly reachable
+  g.on('click', () => onCardClick(c.id));
+  g.on('mouseenter', () => { if (isNextCard(c.id)) document.body.style.cursor = 'pointer'; });
+  g.on('mouseleave', () => { document.body.style.cursor = ''; });
+
+  cardLayer.add(g); groups.set(c.id, g);
+}
+
+// ── Visual states (opacity + glow) ────────────────────────────
+function applyStates() {
+  const visited = new Set(history.map(h => h.cardId));
+  const nextSet = new Set(Object.values(outMap.get(currentId) || {}));
+
+  groups.forEach((g, id) => {
+    const c = cardMap.get(id);
+    if (!c || c.type === 'START') { g.opacity(1); return; }
+    const rect = g.getAttr('rect');
+
+    if (id === currentId) {
+      g.opacity(1);
+      if (rect) { rect.shadowColor('#1976d2'); rect.shadowBlur(22); rect.shadowOpacity(.5); }
+    } else if (nextSet.has(id)) {
+      g.opacity(.9);
+      if (rect) { rect.shadowColor('#90caf9'); rect.shadowBlur(12); rect.shadowOpacity(.3); }
+    } else if (visited.has(id)) {
+      g.opacity(.65);
+      if (rect) { rect.shadowColor('#000'); rect.shadowBlur(6); rect.shadowOpacity(.08); }
+    } else {
+      g.opacity(.22);
+      if (rect) { rect.shadowColor('#000'); rect.shadowBlur(4); rect.shadowOpacity(.04); }
+    }
+  });
+  cardLayer.batchDraw();
+}
+
+// ── Link drawing ──────────────────────────────────────────────
+// Both layers are children of stage → same world coords → use group position directly.
+function cardBottom(id) {
+  const g = groups.get(id); if (!g) return { x:0, y:0 };
+  const c = cardMap.get(id);
+  return { x: g.x() + (c.type==='START' ? 90 : cW(c)/2), y: g.y() + cH(c) };
+}
+function cardTop(id) {
+  const g = groups.get(id); if (!g) return { x:0, y:0 };
+  const c = cardMap.get(id);
+  return { x: g.x() + (c.type==='START' ? 90 : cW(c)/2), y: g.y() };
+}
+
+function pathLinkIds() {
+  const set = new Set();
+  // START link is always on path
+  for (const [lid, L] of linkById) {
+    if (L.from.cardId === 'start_node') { set.add(lid); break; }
+  }
+  // History steps
+  for (const h of history) {
+    for (const [lid, L] of linkById) {
+      if (L.from.cardId === h.cardId && L.from.portIndex === h.portIndex) { set.add(lid); break; }
+    }
+  }
+  return set;
+}
+
+function redrawLinks() {
+  linkLayer.destroyChildren();
+  const onPath = pathLinkIds();
+  const nextOM = outMap.get(currentId) || {};
+  const nextTargets = new Set(Object.values(nextOM));
+
+  linkById.forEach((L, lid) => {
+    if (!groups.has(L.from.cardId) || !groups.has(L.to.cardId)) return;
+    const a = cardBottom(L.from.cardId);
+    const b = cardTop(L.to.cardId);
+    const isPath = onPath.has(lid);
+    const isNext = L.from.cardId === currentId && nextTargets.has(L.to.cardId);
+
+    const col  = isPath ? '#1976d2' : (isNext ? '#90caf9' : '#cbd5e1');
+    const sw   = isPath ? 3        : (isNext ? 2.5      : 1.5);
+    const opac = isPath ? 1        : (isNext ? 0.75     : 0.2);
+
+    linkLayer.add(new Konva.Arrow({
+      points: [a.x, a.y, b.x, b.y],
+      stroke: col, fill: col, strokeWidth: sw, opacity: opac,
+      pointerLength: 9, pointerWidth: 9, lineCap: 'round'
+    }));
+  });
+  linkLayer.batchDraw();
+}
+
+// ── Navigation ─────────────────────────────────────────────────
+function isNextCard(cardId) {
+  if (!currentId) return false;
+  return Object.values(outMap.get(currentId) || {}).includes(cardId);
+}
+
+function onCardClick(cardId) {
+  if (!isNextCard(cardId)) return;
+  const om = outMap.get(currentId) || {};
+  for (const [pIdx, tId] of Object.entries(om)) {
+    if (tId === cardId) {
+      const card  = cardMap.get(currentId);
+      const label = card?.labels?.[pIdx - 1] || `選択肢 ${pIdx}`;
+      navigate(currentId, parseInt(pIdx), label);
+      return;
+    }
+  }
+}
+
+function navigate(fromId, portIdx, label) {
+  history.push({ cardId: fromId, portIndex: portIdx, label });
+  currentId = (outMap.get(fromId) || {})[portIdx] || null;
+  applyStates(); redrawLinks(); renderNav(); setStatus();
+  if (currentId) focusCard(currentId);
+}
+
+function goBack() {
+  if (!history.length) return;
+  const last = history.pop();
+  currentId = last.cardId;
+  applyStates(); redrawLinks(); renderNav(); setStatus();
+  focusCard(currentId);
+}
+
+function resetNav() {
+  history = [];
+  currentId = null;
+  for (const L of rawData?.links || []) {
+    if (L.from.cardId === 'start_node') { currentId = L.to.cardId; break; }
+  }
+  applyStates(); redrawLinks(); renderNav(); setStatus();
+  if (currentId) focusCard(currentId, false);
+}
+
+// ── Camera ────────────────────────────────────────────────────
+function focusCard(id, animate = true) {
+  const g = groups.get(id); if (!g) return;
+  const c = cardMap.get(id);
+  const W = c.type === 'START' ? 180 : cW(c);
+  const H = c.type === 'START' ? 52  : cH(c);
+  const sc = stage.scaleX();
+  const tx = stage.width()  / 2 - (g.x() + W/2) * sc;
+  const ty = stage.height() / 2 - (g.y() + H/2) * sc;
+
+  if (animate) {
+    stage.to({ x: tx, y: ty, duration: 0.3, easing: Konva.Easings.EaseInOut,
+      onFinish: () => redrawLinks() });
+  } else {
+    stage.position({ x: tx, y: ty }); stage.batchDraw();
+  }
+  redrawLinks();
+}
+
+function fitAll() {
+  if (!groups.size) return;
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  groups.forEach((g, id) => {
+    const c = cardMap.get(id);
+    const W = c.type === 'START' ? 180 : cW(c);
+    const H = c.type === 'START' ? 52  : cH(c);
+    x0 = Math.min(x0, g.x()); y0 = Math.min(y0, g.y());
+    x1 = Math.max(x1, g.x() + W); y1 = Math.max(y1, g.y() + H);
+  });
+  const pad = 60;
+  const sc  = Math.min(1.2, Math.min((stageW()-pad) / Math.max(1, x1-x0), (stageH()-pad) / Math.max(1, y1-y0)));
+  const cx  = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+  stage.scale({ x: sc, y: sc });
+  stage.position({ x: stageW()/2 - cx*sc, y: stageH()/2 - cy*sc });
+  stage.batchDraw();
+}
+
+// ── Nav panel ─────────────────────────────────────────────────
+const esc = s => String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+function renderNav() {
+  const el = document.getElementById('navInner');
+  if (!rawData || !currentId) {
+    el.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">🗺️</div>
+        <div class="empty-title">Pathfinder</div>
+        <div class="empty-desc">Zipline でエクスポートした JSON を読み込むか、<br>「ブラウザから読込」を押してください。</div>
+      </div>`;
+    return;
+  }
+
+  const card = cardMap.get(currentId);
+  if (!card) { el.innerHTML = '<div class="empty-state"><p>カードが見つかりません</p></div>'; return; }
+
+  const isQ = card.type === 'Q';
+  const om  = outMap.get(currentId) || {};
+
+  // ── Header ──
+  let html = `
+    <div class="nav-header">
+      <div class="type-badge ${card.type}">${isQ ? '🔵 質問' : '🟢 回答'}</div>
+      <div class="card-title">${esc(card.title || '(タイトルなし)')}</div>
+    </div>
+    <div class="nav-body-wrap">
+      <div class="card-body">${esc(card.content || '')}</div>`;
+
+  // ── Branches or answer ──
+  if (isQ) {
+    html += `<div class="branches">`;
+    for (let i = 1; i <= (card.ports || 2); i++) {
+      const label     = card.labels?.[i-1] || `選択肢 ${i}`;
+      const hasTarget = !!om[i];
+      const col       = PORT_COL[i-1] || '#888';
+      html += `
+        <button class="branch-btn" ${!hasTarget ? 'disabled' : ''}
+          onclick="navigate('${esc(currentId)}',${i},'${esc(label)}')">
+          <span class="b-dot" style="background:${col}"></span>
+          ${esc(label)}
+          ${!hasTarget ? '<span style="font-size:11px;color:#94a3b8;margin-left:4px">(未接続)</span>' : ''}
+          ${hasTarget ? '<span class="b-arrow">→</span>' : ''}
+        </button>`;
+    }
+    html += `</div>`;
+  } else {
+    html += `<div class="answer-box">✅ ここがゴールです。お疲れさまでした。</div>`;
+  }
+  html += `</div>`;  // end nav-body-wrap
+
+  // ── History ──
+  if (history.length) {
+    html += `<div class="history-wrap"><div class="history-label">🕐 経路</div>`;
+    history.forEach((h, i) => {
+      const hc = cardMap.get(h.cardId);
+      html += `<div class="h-row">
+        <span style="color:#94a3b8;font-size:10px">${i+1}.</span>
+        <span class="h-title">${esc(hc?.title || h.cardId)}</span>
+        <span style="color:var(--muted)">→</span>
+        <span class="h-choice">${esc(h.label)}</span>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  // ── Actions ──
+  html += `<div class="nav-actions">`;
+  if (history.length) html += `<button onclick="goBack()">◀ 戻る</button>`;
+  html += `<button class="primary" onclick="resetNav()">↺ 最初から</button>`;
+  html += `</div>`;
+
+  el.innerHTML = html;
+}
+
+// ── Status ────────────────────────────────────────────────────
+function setStatus() {
+  const el = document.getElementById('statusBar');
+  if (!rawData) { el.textContent = '未読込'; return; }
+  const total = [...cardMap.values()].filter(c => c.type !== 'START').length;
+  el.textContent = `カード ${total} 枚 ／ ステップ ${history.length}`;
+}
+
+// ── Button handlers ───────────────────────────────────────────
+document.getElementById('btnBrowser').onclick = () => {
+  const raw = localStorage.getItem('zipline:auto') || localStorage.getItem('zipline:canvas');
+  if (!raw) return alert('保存データがありません。\nZipline で「Save to Browser」を実行してください。');
+  try { loadData(JSON.parse(raw)); } catch (e) { alert('読み込みエラー: ' + e.message); }
+};
+
+document.getElementById('fileLoad').onchange = e => {
+  const f = e.target.files[0]; if (!f) return;
+  const fr = new FileReader();
+  fr.onload = () => { try { loadData(JSON.parse(fr.result)); } catch (err) { alert('JSON エラー: ' + err.message); } };
+  fr.readAsText(f);
+  e.target.value = '';
+};
+
+document.getElementById('btnReset').onclick = () => { if (rawData) resetNav(); };
+document.getElementById('btnDemo').onclick  = () => loadData(DEMO);
+
+// ── Demo data ─────────────────────────────────────────────────
+const DEMO = {
+  meta: { version: 'zipline-0.85' },
+  cards: [
+    { id:'start_node', type:'START', x:300, y:60,  title:'START', ports:0, labels:[], content:'' },
+    { id:'q_01', type:'Q', x:220, y:180, title:'PCが起動しますか？',      ports:2, labels:['はい','いいえ'], content:'電源ボタンを押して、画面に何か表示されるか確認してください。' },
+    { id:'q_02', type:'Q', x:60,  y:380, title:'ネットワークに繋がりますか？', ports:2, labels:['繋がる','繋がらない'], content:'ブラウザを開いてウェブサイトにアクセスできるか試してください。' },
+    { id:'q_03', type:'Q', x:400, y:380, title:'BIOS画面は出ますか？',     ports:2, labels:['出る','出ない'], content:'起動直後に「BIOS」や「Setup」のロゴが一瞬表示されるか確認。' },
+    { id:'a_01', type:'A', x:60,  y:580, title:'問題なし',                  ports:0, labels:[], content:'ネットワーク接続は正常です。他に問題があればお知らせください。' },
+    { id:'a_02', type:'A', x:260, y:580, title:'ネットワーク設定を確認',     ports:0, labels:[], content:'ルーターの再起動、LANケーブルの接続確認、Wi-Fiパスワードの再入力を試してください。' },
+    { id:'a_03', type:'A', x:420, y:580, title:'OS再インストールを検討',     ports:0, labels:[], content:'BIOSは正常です。OSの破損が疑われます。バックアップ後に再インストールを検討してください。' },
+    { id:'a_04', type:'A', x:580, y:580, title:'ハードウェア故障の可能性',   ports:0, labels:[], content:'BIOS画面も出ない場合はマザーボードやCPUの故障が疑われます。専門業者へ相談してください。' }
+  ],
+  links: [
+    { id:'l_s1',  from:{ cardId:'start_node', portIndex:1 }, to:{ cardId:'q_01' } },
+    { id:'l_1_y', from:{ cardId:'q_01', portIndex:1 },       to:{ cardId:'q_02' } },
+    { id:'l_1_n', from:{ cardId:'q_01', portIndex:2 },       to:{ cardId:'q_03' } },
+    { id:'l_2_y', from:{ cardId:'q_02', portIndex:1 },       to:{ cardId:'a_01' } },
+    { id:'l_2_n', from:{ cardId:'q_02', portIndex:2 },       to:{ cardId:'a_02' } },
+    { id:'l_3_y', from:{ cardId:'q_03', portIndex:1 },       to:{ cardId:'a_03' } },
+    { id:'l_3_n', from:{ cardId:'q_03', portIndex:2 },       to:{ cardId:'a_04' } }
+  ],
+  viewport: { scale:1, x:0, y:0 }
+};
+
+// ── Init ──────────────────────────────────────────────────────
+// デモデータで起動（ブラウザデータがあればそちらを優先）
+(function boot() {
+  const raw = localStorage.getItem('zipline:auto') || localStorage.getItem('zipline:canvas');
+  if (raw) { try { loadData(JSON.parse(raw)); return; } catch {} }
+  loadData(DEMO);
+})();
+</script>
+</body>
+</html>
