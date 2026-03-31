@@ -17,13 +17,13 @@ a natural flow: philosophy → structure → behavior → operation → future p
 
 | No | ファイル名 | 内容概要 / Description |
 |----|-------------|----------------|
-| 00 | [00_Overview.md](docs/00_Overview.md) | コンセプトと思想 / Concept and philosophy |
-| 01 | [01_DataSpec.md](docs/01_DataSpec.md) | カードデータ取り扱い仕様 / Card handling within Zipline |
-| 02 | [02_UI_Behavior.md](docs/02_UI_Behavior.md) | UI挙動と編集フロー / User interface behavior and flow |
-| 03 | [03_Validation.md](docs/03_Validation.md) | 検証とステータス評価 / Validation and status logic |
-| 04 | [04_EditorMeta.md](docs/04_EditorMeta.md) | エディタメタ構造 / Editor meta-data structure |
-| 05 | [05_GitStructure.md](docs/05_GitStructure.md) | Git運用ルール / Git structure and commit policy |
-| 06 | [06_FuturePlans.md](docs/06_FuturePlans.md) | 将来拡張・駐車場 / Future extensions and parking ideas |
+| 00 | [00_Overview.md](docs/zipline/v1/spec/00_Overview.md) | コンセプトと思想 / Concept and philosophy |
+| 01 | [01_DataSpec.md](docs/zipline/v1/spec/01_DataSpec.md) | カードデータ取り扱い仕様 / Card handling within Zipline |
+| 02 | [02_UI_Behavior.md](docs/zipline/v1/spec/02_UI_Behavior.md) | UI挙動と編集フロー / User interface behavior and flow |
+| 03 | [03_Validation.md](docs/zipline/v1/spec/03_Validation.md) | 検証とステータス評価 / Validation and status logic |
+| 04 | [04_EditorMeta.md](docs/zipline/v1/spec/04_EditorMeta.md) | エディタメタ構造 / Editor meta-data structure |
+| 05 | [05_GitStructure.md](docs/zipline/v1/spec/05_GitStructure.md) | Git運用ルール / Git structure and commit policy |
+| 06 | [06_FuturePlans.md](docs/zipline/v1/spec/06_FuturePlans.md) | 将来拡張・駐車場 / Future extensions and parking ideas |
 
 ---
 
